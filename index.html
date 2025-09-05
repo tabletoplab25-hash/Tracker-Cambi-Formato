@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tracker Cambi Formato - Linee Produzione</title>
+  <title>Tracker Cambi Formato - Linee Produzione (config + dati in cloud)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height: 100vh; padding: 20px; color: #222; }
@@ -272,7 +272,7 @@
           <tbody id="recordsBody"></tbody>
         </table>
       </div>
-      <p class="footer-note">Puoi modificare o cancellare ogni riga dalla colonna Azione. I dati sono salvati in <span class="mono">localStorage</span> e, se configurato, sincronizzati su JSONBin.io.</p>
+      <p class="footer-note">Configurazioni e dati vengono salvati in <span class="mono">localStorage</span> e, se impostato, nello stesso bin su JSONBin.io.</p>
     </div>
   </div>
 
@@ -321,7 +321,6 @@
       title.style.margin = "6px 0 10px";
       root.appendChild(title);
 
-      // intestazione
       const topGrid = document.createElement('div');
       topGrid.className = 'form-grid';
       topGrid.innerHTML = `
@@ -344,7 +343,6 @@
       `;
       root.appendChild(topGrid);
 
-      // stazioni
       const stationsWrap = document.createElement('div');
       stationsWrap.className = 'stations';
 
@@ -365,7 +363,6 @@
       });
       root.appendChild(stationsWrap);
 
-      // cluster cambio linea / lavaggi
       const cluster = document.createElement('div');
       cluster.className = 'cluster';
       cluster.innerHTML = `
@@ -386,17 +383,14 @@
     }
 
     function populateSelectOptions(){
-      // linea
       const lineaSel = document.getElementById('lineaSel');
       lineaSel.innerHTML = appConfig.linee.map(l=>`<option>${l}</option>`).join('');
 
-      // dashboard linea (aggiungi "Tutte")
       const dashLinea = document.getElementById('dash-linea');
       if (dashLinea) {
         dashLinea.innerHTML = `<option value="__ALL__">Tutte</option>` + appConfig.linee.map(l=>`<option>${l}</option>`).join('');
       }
 
-      // operatori / TL / formati per tutti i turni
       ["mattina","pomeriggio","notte"].forEach(shift=>{
         const op = document.getElementById(`${shift}-operatore`);
         const tl = document.getElementById(`${shift}-team-leader`);
@@ -406,7 +400,6 @@
         fm.innerHTML = `<option value="">Seleziona formato</option>` + appConfig.formati.map(v=>`<option>${v}</option>`).join('');
       });
 
-      // date default dashboard
       const today = new Date();
       const first = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
       const last  = new Date(today.getFullYear(), today.getMonth()+1, 0).toISOString().split('T')[0];
@@ -441,7 +434,6 @@
       });
     }
 
-    // ===== STATUS =====
     function showStatus(msg, type='success'){
       const el = document.getElementById('status');
       el.textContent = msg;
@@ -454,9 +446,7 @@
     // ===== CONFIG PERSISTENZA =====
     function caricaConfigurazione(){
       const saved = localStorage.getItem('appConfig');
-      if(saved){
-        try { appConfig = JSON.parse(saved); } catch{}
-      }
+      if(saved){ try { appConfig = JSON.parse(saved); } catch{} }
       API_KEY = appConfig.cloudConfig?.apiKey || '';
       BIN_ID  = appConfig.cloudConfig?.binId  || '';
       const k = document.getElementById('config-api-key'); if(k) k.value = API_KEY;
@@ -468,10 +458,7 @@
       showStatus('Configurazione salvata','success');
     }
 
-    function aggiornaInterfaccia(){
-      populateSelectOptions();
-    }
-
+    function aggiornaInterfaccia(){ populateSelectOptions(); }
     function aggiornaListeConfigurazione(){
       const listaOperatori = document.getElementById('lista-operatori');
       listaOperatori.innerHTML = '';
@@ -514,51 +501,53 @@
       buildCasisticheEditor();
     }
 
-    // ==== CONFIG add/remove
+    // ==== CONFIG add/remove (con push su cloud) ====
+    async function pushConfig(){ try{ await saveToCloud(productionData); } catch(e){ /* fallback silenzioso */ } }
+
     function aggiungiOperatore(){
       const input = document.getElementById('nuovo-operatore');
       const nome = input.value.trim();
       if(nome && !appConfig.operatori.includes(nome)){
-        appConfig.operatori.push(nome); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Operatore aggiunto','success');
+        appConfig.operatori.push(nome); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Operatore aggiunto','success'); pushConfig();
       } else { showStatus('Nome vuoto o già presente','error'); }
     }
-    function rimuoviOperatore(i){ if(confirm(`Rimuovere "${appConfig.operatori[i]}"?`)){ appConfig.operatori.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); } }
+    function rimuoviOperatore(i){ if(confirm(`Rimuovere "${appConfig.operatori[i]}"?`)){ appConfig.operatori.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); pushConfig(); } }
 
     function aggiungiTeamLeader(){
       const input = document.getElementById('nuovo-team-leader');
       const nome = input.value.trim();
       if(nome && !appConfig.teamLeaders.includes(nome)){
-        appConfig.teamLeaders.push(nome); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Team Leader aggiunto','success');
+        appConfig.teamLeaders.push(nome); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Team Leader aggiunto','success'); pushConfig();
       } else { showStatus('Nome vuoto o già presente','error'); }
     }
-    function rimuoviTeamLeader(i){ if(confirm(`Rimuovere "${appConfig.teamLeaders[i]}"?`)){ appConfig.teamLeaders.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); } }
+    function rimuoviTeamLeader(i){ if(confirm(`Rimuovere "${appConfig.teamLeaders[i]}"?`)){ appConfig.teamLeaders.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); pushConfig(); } }
 
     function aggiungiFormato(){
       const input = document.getElementById('nuovo-formato');
       const val = input.value.trim();
       if(val && !appConfig.formati.includes(val)){
-        appConfig.formati.push(val); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Formato aggiunto','success');
+        appConfig.formati.push(val); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Formato aggiunto','success'); pushConfig();
       } else { showStatus('Formato vuoto o già presente','error'); }
     }
-    function rimuoviFormato(i){ if(confirm(`Rimuovere "${appConfig.formati[i]}"?`)){ appConfig.formati.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); } }
+    function rimuoviFormato(i){ if(confirm(`Rimuovere "${appConfig.formati[i]}"?`)){ appConfig.formati.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); pushConfig(); } }
 
     function aggiungiLinea(){
       const input = document.getElementById('nuova-linea');
       const val = input.value.trim();
       if(val && !appConfig.linee.includes(val)){
-        appConfig.linee.push(val); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Linea aggiunta','success');
+        appConfig.linee.push(val); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); input.value=''; showStatus('Linea aggiunta','success'); pushConfig();
       } else { showStatus('Linea vuota o già presente','error'); }
     }
-    function rimuoviLinea(i){ if(confirm(`Rimuovere "${appConfig.linee[i]}"?`)){ appConfig.linee.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); } }
+    function rimuoviLinea(i){ if(confirm(`Rimuovere "${appConfig.linee[i]}"?`)){ appConfig.linee.splice(i,1); salvaConfigurazione(); aggiornaInterfaccia(); aggiornaListeConfigurazione(); pushConfig(); } }
 
     function aggiungiCasistica(st){
       const input = document.getElementById(`add-${st}`);
       const v = input.value.trim();
       const arr = appConfig.casistichePerStazione[st] || (appConfig.casistichePerStazione[st] = []);
-      if(v && !arr.includes(v)){ arr.push(v); salvaConfigurazione(); buildCasisticheEditor(); aggiornaInterfaccia(); input.value=''; showStatus('Casistica aggiunta','success'); }
+      if(v && !arr.includes(v)){ arr.push(v); salvaConfigurazione(); buildCasisticheEditor(); aggiornaInterfaccia(); input.value=''; showStatus('Casistica aggiunta','success'); pushConfig(); }
       else { showStatus('Vuoto o già presente','error'); }
     }
-    function rimuoviCasistica(st, i){ if(confirm('Rimuovere casistica?')){ appConfig.casistichePerStazione[st].splice(i,1); salvaConfigurazione(); buildCasisticheEditor(); aggiornaInterfaccia(); } }
+    function rimuoviCasistica(st, i){ if(confirm('Rimuovere casistica?')){ appConfig.casistichePerStazione[st].splice(i,1); salvaConfigurazione(); buildCasisticheEditor(); aggiornaInterfaccia(); pushConfig(); } }
 
     function salvaConfigurazioneCloud(){
       const apiKey = document.getElementById('config-api-key').value.trim();
@@ -608,10 +597,50 @@
 
     // ====== STORAGE LOCALE / CLOUD ======
     function saveToLocal(data){ localStorage.setItem('productionData', JSON.stringify(data)); }
-    async function saveToCloud(data){ if(!API_KEY || !BIN_ID) throw new Error('Cloud non configurato'); const resp = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, { method:'PUT', headers:{ 'Content-Type':'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify({ productionData: data, lastUpdated: new Date().toISOString() }) }); if(!resp.ok) throw new Error(`HTTP ${resp.status}`); }
-    async function loadFromCloud(){ const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers:{ 'X-Master-Key': API_KEY } }); if(!r.ok) throw new Error(`HTTP ${r.status}`); const data = await r.json(); return data.record?.productionData || []; }
-    async function caricaSulCloud(){ try { await saveToCloud(productionData); showStatus('Dati caricati sul cloud','success'); } catch(e){ showStatus('Errore upload cloud: '+e.message,'error'); } }
-    async function sincronizzaDaCloud(){ try { productionData = await loadFromCloud(); saveToLocal(productionData); updateRecordsTable(); renderDashboard(); showStatus('Dati scaricati dal cloud','success'); } catch(e){ showStatus('Errore download cloud: '+e.message,'error'); } }
+
+    // >>> SALVATAGGIO **UNIFICATO** DI DATI + CONFIG IN CLOUD <<<
+    async function saveToCloud(data){
+      if(!API_KEY || !BIN_ID) throw new Error('Cloud non configurato');
+      const payload = { productionData: data, appConfig: appConfig, lastUpdated: new Date().toISOString() };
+      const resp = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method:'PUT',
+        headers:{ 'Content-Type':'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify(payload)
+      });
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    }
+
+    // >>> LETTURA **UNIFICATA** DI DATI + CONFIG DAL CLOUD <<<
+    async function loadFromCloud(){
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers:{ 'X-Master-Key': API_KEY } });
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      return { productionData: data.record?.productionData || [], appConfig: data.record?.appConfig || null };
+    }
+
+    async function caricaSulCloud(){
+      try { await saveToCloud(productionData); showStatus('Dati & configurazione caricati sul cloud','success'); }
+      catch(e){ showStatus('Errore upload cloud: '+e.message,'error'); }
+    }
+
+    async function sincronizzaDaCloud(){
+      try {
+        const loaded = await loadFromCloud();
+        if(loaded.appConfig){
+          appConfig = loaded.appConfig;
+          salvaConfigurazione();
+          aggiornaInterfaccia();
+          aggiornaListeConfigurazione();
+        }
+        productionData = loaded.productionData || [];
+        saveToLocal(productionData);
+        updateRecordsTable();
+        renderDashboard();
+        showStatus('Dati scaricati dal cloud','success');
+      } catch(e){
+        showStatus('Errore download cloud: '+e.message,'error');
+      }
+    }
 
     // ====== BUSINESS LOGIC ======
     function getShiftRecord(shift){
@@ -630,7 +659,7 @@
         if(caso || min>0){ stazioni[st] = { caso, min }; }
       });
 
-      const ric = {
+      return {
         id: EDITING_ID || (Date.now()+Math.random()),
         date: document.getElementById('workDate').value,
         linea: line,
@@ -642,14 +671,12 @@
         stazioni,
         timestamp: new Date().toISOString()
       };
-      return ric;
     }
 
     async function saveData(){
       const date = document.getElementById('workDate').value;
       if(!date){ showStatus('Seleziona una data','error'); return; }
 
-      // modalità editing singolo record
       if(EDITING_ID){
         const r = getShiftRecord(lastEditedShift);
         if(!r){ showStatus('Compila il turno per salvare','error'); return; }
@@ -661,12 +688,10 @@
         return;
       }
 
-      // creazione nuovi record (fino a 3 turni)
       const newRecords = [];
       ['mattina','pomeriggio','notte'].forEach(s=>{ const r = getShiftRecord(s); if(r) newRecords.push(r); });
       if(newRecords.length===0){ showStatus('Inserisci almeno un turno con Operatore e Formato','error'); return; }
 
-      // rimuovi esistenti della stessa data+linea & stesso turno (così salvataggi successivi aggiornano)
       const linea = document.getElementById('lineaSel').value;
       const shiftsSet = new Set(newRecords.map(r=>r.shift));
       productionData = productionData.filter(r => !(r.date===date && r.linea===linea && shiftsSet.has(r.shift)));
@@ -739,13 +764,11 @@
     function loadShiftFormFromRecord(r){
       document.getElementById('workDate').value = r.date;
       document.getElementById('lineaSel').value = r.linea;
-      // attiva tab del turno
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
       const tabBtn = document.querySelector(`.tab[data-tab='${r.shift}']`); if(tabBtn) tabBtn.classList.add('active');
       const tabCnt = document.getElementById(r.shift); tabCnt.classList.add('active');
 
-      // riempi campi
       document.getElementById(`${r.shift}-operatore`).value = r.operatore || '';
       document.getElementById(`${r.shift}-team-leader`).value = r.teamLeader || '';
       document.getElementById(`${r.shift}-formato`).value = r.formato || '';
@@ -776,7 +799,6 @@
     }
 
     function loadDayData(){
-      // pulizia campi quando si cambia data
       ['mattina','pomeriggio','notte'].forEach(shift=>{
         document.getElementById(`${shift}-operatore`).value = '';
         document.getElementById(`${shift}-team-leader`).value = '';
@@ -793,14 +815,13 @@
       const d = new Date(dateStr+'T00:00:00');
       if(agg==='giorno') return d.toISOString().split('T')[0];
       if(agg==='settimana'){
-        const day = d.getUTCDay(); const diff = (day===0?6:day-1); // lunedì inizio
+        const day = d.getUTCDay(); const diff = (day===0?6:day-1);
         const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()-diff));
         const year = monday.getUTCFullYear();
         const onejan = new Date(Date.UTC(year,0,1));
         const week = Math.ceil((((monday - onejan)/86400000) + onejan.getUTCDay()+1)/7);
         return `${year}-W${String(week).padStart(2,'0')}`;
       }
-      // mese
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     }
 
@@ -820,10 +841,9 @@
       const agg = document.getElementById('dash-agg').value;
       const data = filterDataForDashboard();
 
-      // aggregazioni base
-      const byPeriodoLinea = {}; // { periodo|linea: { minutiTot, cambioProdotto, lavaggi, cambioFormato } }
-      const minByStazione = {}; // totale minuti per stazione
-      const minByLinea = {};    // totale minuti per linea
+      const byPeriodoLinea = {};
+      const minByStazione = {};
+      const minByLinea = {};
 
       data.forEach(r=>{
         const key = groupKey(r.date, agg)+"|"+r.linea;
@@ -838,7 +858,6 @@
         minByLinea[r.linea] = (minByLinea[r.linea]||0) + totMin;
       });
 
-      // tabella
       const tbody = document.querySelector('#dash-table tbody');
       tbody.innerHTML='';
       Object.values(byPeriodoLinea).sort((a,b)=> a.periodo.localeCompare(b.periodo) || a.linea.localeCompare(b.linea)).forEach(row=>{
@@ -854,76 +873,52 @@
         tbody.appendChild(tr);
       });
 
-      // chart stazioni
       const ctx1 = document.getElementById('chartStazioni').getContext('2d');
       if(chartStazioni) chartStazioni.destroy();
-      chartStazioni = new Chart(ctx1, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(minByStazione),
-          datasets: [{
-            label: 'Minuti',
-            data: Object.values(minByStazione)
-          }]
-        },
-        options: { responsive: true, plugins: { legend: { display: true } } }
-      });
+      chartStazioni = new Chart(ctx1, { type: 'bar', data: { labels: Object.keys(minByStazione), datasets: [{ label: 'Minuti', data: Object.values(minByStazione) }] }, options: { responsive: true, plugins: { legend: { display: true } } } });
 
-      // chart linee
       const ctx2 = document.getElementById('chartLinee').getContext('2d');
       if(chartLinee) chartLinee.destroy();
-      chartLinee = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(minByLinea),
-          datasets: [{
-            label: 'Minuti',
-            data: Object.values(minByLinea)
-          }]
-        },
-        options: { responsive: true, plugins: { legend: { display: true } } }
-      });
+      chartLinee = new Chart(ctx2, { type: 'bar', data: { labels: Object.keys(minByLinea), datasets: [{ label: 'Minuti', data: Object.values(minByLinea) }] }, options: { responsive: true, plugins: { legend: { display: true } } } });
     }
 
     // ====== INIT ======
     document.addEventListener('DOMContentLoaded', async () => {
-      // tabs
       document.querySelectorAll('.tab').forEach(tab=>{
         tab.addEventListener('click', ()=>{
           const id = tab.getAttribute('data-tab');
           document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
           document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
           tab.classList.add('active'); document.getElementById(id).classList.add('active');
+          if(id==='config'){ aggiornaListeConfigurazione(); }
         });
       });
 
-      // data odierna
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('workDate').value = today;
 
-      // build UI
       caricaConfigurazione();
-      shifts.forEach(s=>buildShiftCard(s.id));
+      ['mattina','pomeriggio','notte'].forEach(s=>buildShiftCard(s));
       populateSelectOptions();
       aggiornaListeConfigurazione();
 
-      // carica dati archivio
       try {
         if(appConfig.cloudConfig?.apiKey && appConfig.cloudConfig?.binId){
           API_KEY = appConfig.cloudConfig.apiKey; BIN_ID = appConfig.cloudConfig.binId;
-          productionData = await loadFromCloud();
+          const loaded = await loadFromCloud();
+          productionData = loaded.productionData || [];
+          if(loaded.appConfig){ appConfig = loaded.appConfig; salvaConfigurazione(); populateSelectOptions(); aggiornaListeConfigurazione(); }
         } else {
           const localData = localStorage.getItem('productionData');
           productionData = localData ? JSON.parse(localData) : [];
         }
-      } catch { const localData = localStorage.getItem('productionData'); productionData = localData ? JSON.parse(localData) : []; }
+      } catch {
+        const localData = localStorage.getItem('productionData'); productionData = localData ? JSON.parse(localData) : [];
+      }
       updateRecordsTable();
       renderDashboard();
 
-      // autosave leggero (solo locale) ogni 30s
       setInterval(()=>{ saveToLocal(productionData); }, 30000);
-
-      // change date handler
       document.getElementById('workDate').addEventListener('change', loadDayData);
     });
   </script>
