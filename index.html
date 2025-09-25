@@ -167,6 +167,10 @@
           <h3>Backup Configurazione</h3>
           <div class="cluster">
             <div>
+              <button class="soft" onclick="esportaConfigurazione()">📤 Esporta JSON</button>
+              <label class="pill" style="margin-left: 8px;">Backup .json (config + dati)</label>
+            </div>
+            <div>
               <button class="soft" onclick="esportaConfigurazioneExcel()">📤 Esporta Excel</button>
               <label class="pill" style="margin-left: 8px;">Crea un .xlsx con Config + Dati</label>
             </div>
@@ -584,6 +588,19 @@ function populateSelectOptions(){
       }catch(e){ statusDiv.textContent = `❌ Errore connessione: ${e.message}`; statusDiv.className='status-message error'; }
     }
 
+    
+    function esportaConfigurazione(){
+      const dataToExport = { config: appConfig, productionData, exportDate: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `configurazione_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Configurazione esportata','success');
+    }
+
     function esportaConfigurazioneExcel(){
       const wb = XLSX.utils.book_new();
 
@@ -978,4 +995,3 @@ function populateSelectOptions(){
   </script>
 </body>
 </html>
-
